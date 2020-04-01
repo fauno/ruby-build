@@ -13,7 +13,7 @@
 #   --version        Show version of ruby-build
 #
 
-RUBY_BUILD_VERSION="20191225"
+RUBY_BUILD_VERSION="20200401"
 
 OLDIFS="$IFS"
 
@@ -756,6 +756,8 @@ remove_windows_files() {
 }
 
 build_package_copy() {
+  # Make sure there are no leftover files in $PREFIX_PATH
+  rm -rf "$PREFIX_PATH"
   mkdir -p "$PREFIX_PATH"
   cp -fR . "$PREFIX_PATH"
 }
