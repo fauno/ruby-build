@@ -14,7 +14,7 @@
 #   --version        Show version of ruby-build
 #
 
-RUBY_BUILD_VERSION="20200520"
+RUBY_BUILD_VERSION="20200926"
 
 OLDIFS="$IFS"
 
@@ -91,7 +91,7 @@ os_information() {
   if type -p lsb_release >/dev/null; then
     lsb_release -sir | xargs echo
   elif type -p sw_vers >/dev/null; then
-    echo "OS X $(sw_vers -productVersion)"
+    echo "$(sw_vers -productName) $(sw_vers -productVersion)"
   elif [ -r /etc/os-release ]; then
     source /etc/os-release
     echo "$NAME" $VERSION_ID
@@ -737,7 +737,7 @@ install_jruby_launcher() {
 
 fix_jruby_shebangs() {
   for file in "${PREFIX_PATH}/bin"/*; do
-    if [ "$(head -c 20 "$file")" = "#!/usr/bin/env jruby" ]; then
+    if [ "$(head -c 20 "$file" | tr -d '\0')" = "#!/usr/bin/env jruby" ]; then
       sed -i.bak "1 s:.*:#\!${PREFIX_PATH}\/bin\/jruby:" "$file"
       rm "$file".bak
     fi
@@ -749,6 +749,29 @@ build_package_truffleruby() {
 
   cd "${PREFIX_PATH}"
   "${PREFIX_PATH}/lib/truffle/post_install_hook.sh"
+}
+
+build_package_truffleruby_graalvm() {
+  clean_prefix_path
+  build_package_copy_to "${PREFIX_PATH}/graalvm"
+
+  cd "${PREFIX_PATH}/graalvm"
+  if is_mac; then
+    cd Contents/Home || return $?
+  fi
+
+  bin/gu install ruby || return $?
+
+  local ruby_home
+  ruby_home=$(bin/ruby -e 'print RbConfig::CONFIG["prefix"]')
+
+  # Make gu available in PATH (useful to install other languages)
+  ln -s "$PWD/bin/gu" "$ruby_home/bin/gu"
+
+  cd "${PREFIX_PATH}"
+  ln -s "${ruby_home#"$PREFIX_PATH/"}/bin" . || return $?
+
+  "$ruby_home/lib/truffle/post_install_hook.sh"
 }
 
 build_package_artichoke() {
@@ -767,11 +790,20 @@ remove_windows_files() {
   rm -f bin/*.exe bin/*.dll bin/*.bat bin/jruby.sh
 }
 
-build_package_copy() {
+clean_prefix_path() {
   # Make sure there are no leftover files in $PREFIX_PATH
   rm -rf "$PREFIX_PATH"
-  mkdir -p "$PREFIX_PATH"
-  cp -fR . "$PREFIX_PATH"
+}
+
+build_package_copy_to() {
+  to="$1"
+  mkdir -p "$to"
+  cp -fR . "$to"
+}
+
+build_package_copy() {
+  clean_prefix_path
+  build_package_copy_to "$PREFIX_PATH"
 }
 
 before_install_package() {
@@ -1243,14 +1275,14 @@ list_maintained_versions() {
 extract_latest_versions() {
   # sort in this function looks redundunt but it is necessary
   # rbx-3.99 appears latest unless the sort
-  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z.\1/; s/$/.z/; G; s/\n/ /' | \
+  sed 'h; s/[-]/./g; s/.p\([[:digit:]]\)/.z.\1/; s/$/.z/; G; s/\n/ /' | \
     LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | \
-    sed 's/[+.]/ /; s/[0-9].*z //; s/^\([0-9].[0-9]\)/mri\1 \1/' | \
+    sed 's/[.]/ /; s/[0-9].*z //; s/^\([0-9].[0-9]\)/mri\1 \1/' | \
     awk '{ latest[$1] =$2 } END{ for(key in latest) { print latest[key] } }'
 }
 
 sort_versions() {
-  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z.\1/; s/$/.z/; G; s/\n/ /' | \
+  sed 'h; s/[-]/./g; s/.p\([[:digit:]]\)/.z.\1/; s/$/.z/; G; s/\n/ /' | \
     LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | awk '{print $2}'
 }
 
