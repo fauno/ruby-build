@@ -14,7 +14,7 @@
 #   --version        Show version of ruby-build
 #
 
-RUBY_BUILD_VERSION="20200926"
+RUBY_BUILD_VERSION="20201225"
 
 OLDIFS="$IFS"
 
@@ -365,6 +365,8 @@ fetch_tarball() {
       if [[ -z "$RUBY_BUILD_DEFAULT_MIRROR" || $package_url != */cache.ruby-lang.org/* ]]; then
         mirror_url="${RUBY_BUILD_MIRROR_URL}/$checksum"
       fi
+    elif [ -n "$RUBY_BUILD_MIRROR_PACKAGE_URL" ]; then
+      mirror_url="$RUBY_BUILD_MIRROR_PACKAGE_URL"
     fi
   fi
 
@@ -1421,7 +1423,7 @@ else
   unset RUBY_BUILD_CACHE_PATH
 fi
 
-if [ -z "$RUBY_BUILD_MIRROR_URL" ]; then
+if [ -z "$RUBY_BUILD_MIRROR_URL" -a -z "$RUBY_BUILD_MIRROR_PACKAGE_URL" ]; then
   RUBY_BUILD_MIRROR_URL="https://dqw8nmjcqpjn7.cloudfront.net"
   RUBY_BUILD_DEFAULT_MIRROR=1
 else
@@ -1430,7 +1432,7 @@ else
 fi
 
 if [ -n "$RUBY_BUILD_SKIP_MIRROR" ] || ! has_checksum_support compute_sha2; then
-  unset RUBY_BUILD_MIRROR_URL
+  unset RUBY_BUILD_MIRROR_URL RUBY_BUILD_MIRROR_PACKAGE_URL
 fi
 
 ARIA2_OPTS="${RUBY_BUILD_ARIA2_OPTS} ${IPV4+--disable-ipv6=true} ${IPV6+--disable-ipv6=false}"
